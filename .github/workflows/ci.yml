@@ -3,7 +3,9 @@ name: CI Pipeline
 on:
   pull_request:
     branches:
-     - main
+     - devel
+     - stage
+     - prod
 
 jobs:
   build:
@@ -32,3 +34,23 @@ jobs:
 
       - name: build the project
         run: npm run build
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-region: ${{ secrets.AWS_REGION}}
+
+      - name: deploy to s3 based on the target branch
+        run: |
+          if [ "${{github.base_ref}}" == "devel"]; then
+            aws s3 sync ./public s3://fsl-devops-devel/ --delete
+          elif [ "${{github.base_ref}}" == "stage"]; then
+            aws s3 sync ./public s3://fsl-devops-stage/ --delete
+          elif [ "${{github.base_ref}}" == "prod"]; then
+            aws s3 sync ./public s3://fsl-devops-prod/ --delete
+          else
+            echo "Branch not configured for s3 deployment"
+            exit 1
+          fi
